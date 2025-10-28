@@ -1,24 +1,92 @@
 import React, { useState } from 'react'
+import {
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  TextField,
+  Button,
+  Grid,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Alert,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
+  InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Stepper,
+  Step,
+  StepLabel,
+  Avatar,
+  Divider,
+  Fade,
+  Zoom,
+} from '@mui/material'
+import {
+  Person as MemberIcon,
+  Book as BookIcon,
+  CalendarToday as DateIcon,
+  Search as SearchIcon,
+  Warning as WarningIcon,
+  CheckCircle as SuccessIcon,
+  Schedule as ClockIcon,
+} from '@mui/icons-material'
 import { useBooks } from '../context/BookContext'
-import Button from '../components/Button'
+
+const steps = ['Select Book', 'Member Details', 'Confirmation']
 
 const Borrow = () => {
   const { books, updateBook } = useBooks()
+  const [activeStep, setActiveStep] = useState(0)
   const [selectedBook, setSelectedBook] = useState('')
   const [memberId, setMemberId] = useState('')
+  const [memberName, setMemberName] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
 
-  const availableBooks = books.filter(book => book.status === 'available')
+  const availableBooks = books.filter(book => 
+    book.status === 'available' && 
+    book.title.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
-  const handleBorrow = async (e) => {
-    e.preventDefault()
-    if (!selectedBook || !memberId || !dueDate) {
-      alert('Please fill all fields')
+  const borrowedBooks = books.filter(book => book.status === 'borrowed')
+
+  const handleNext = () => {
+    if (activeStep === 0 && !selectedBook) {
+      setError('Please select a book to borrow')
       return
     }
+    if (activeStep === 1 && (!memberId || !memberName || !dueDate)) {
+      setError('Please fill all member details')
+      return
+    }
+    setError('')
+    setActiveStep((prev) => prev + 1)
+  }
 
+  const handleBack = () => {
+    setError('')
+    setActiveStep((prev) => prev - 1)
+  }
+
+  const handleBorrow = async () => {
     setLoading(true)
+    setError('')
+
     try {
       const bookToUpdate = books.find(book => book.id === parseInt(selectedBook))
       await updateBook(bookToUpdate.id, {
@@ -26,132 +94,327 @@ const Borrow = () => {
         status: 'borrowed',
         availableCopies: bookToUpdate.availableCopies - 1,
         borrowedBy: memberId,
-        dueDate: dueDate
+        borrowerName: memberName,
+        dueDate: dueDate,
+        borrowedDate: new Date().toISOString().split('T')[0]
       })
       
-      alert('Book borrowed successfully!')
+      setSuccess(`Book "${bookToUpdate.title}" successfully borrowed by ${memberName}`)
       setSelectedBook('')
       setMemberId('')
+      setMemberName('')
       setDueDate('')
+      setActiveStep(0)
     } catch (error) {
-      alert('Error borrowing book')
+      setError('Error borrowing book. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
-  return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Borrow Book</h1>
-      
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <form onSubmit={handleBorrow} className="space-y-6">
-          <div>
-            <label htmlFor="book" className="block text-sm font-medium text-gray-700">
-              Select Book *
-            </label>
-            <select
-              id="book"
-              value={selectedBook}
-              onChange={(e) => setSelectedBook(e.target.value)}
-              required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Choose a book...</option>
-              {availableBooks.map(book => (
-                <option key={book.id} value={book.id}>
-                  {book.title} by {book.author} (ISBN: {book.isbn})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="memberId" className="block text-sm font-medium text-gray-700">
-              Member ID *
-            </label>
-            <input
-              type="text"
-              id="memberId"
-              value={memberId}
-              onChange={(e) => setMemberId(e.target.value)}
-              required
-              placeholder="Enter member ID"
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700">
-              Due Date *
-            </label>
-            <input
-              type="date"
-              id="dueDate"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              required
-              min={new Date().toISOString().split('T')[0]}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <Button type="submit" loading={loading} className="w-full">
-            Borrow Book
-          </Button>
-        </form>
-      </div>
-
-      <div className="mt-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Currently Borrowed Books</h2>
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Book Title
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Author
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Borrowed By
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Due Date
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {books
-                .filter(book => book.status === 'borrowed')
-                .map(book => (
-                  <tr key={book.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {book.title}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {book.author}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {book.borrowedBy}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        new Date(book.dueDate) < new Date() 
-                          ? 'bg-red-100 text-red-800' 
-                          : 'bg-green-100 text-green-800'
-                      }`}>
-                        {book.dueDate}
-                      </span>
-                    </td>
-                  </tr>
+  const getStepContent = (step) => {
+    switch (step) {
+      case 0:
+        return (
+          <Zoom in={true}>
+            <Box>
+              <TextField
+                fullWidth
+                placeholder="Search available books..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                sx={{ mb: 3 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              
+              <Grid container spacing={2}>
+                {availableBooks.map((book) => (
+                  <Grid item xs={12} md={6} key={book.id}>
+                    <Paper
+                      variant="outlined"
+                      sx={{
+                        p: 2,
+                        cursor: 'pointer',
+                        border: selectedBook === book.id.toString() ? 2 : 1,
+                        borderColor: selectedBook === book.id.toString() ? 'primary.main' : 'divider',
+                        bgcolor: selectedBook === book.id.toString() ? 'primary.50' : 'background.paper',
+                        transition: 'all 0.3s ease',
+                        '&:hover': {
+                          borderColor: 'primary.main',
+                          bgcolor: 'primary.50',
+                        }
+                      }}
+                      onClick={() => setSelectedBook(book.id.toString())}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Avatar sx={{ bgcolor: 'primary.main' }}>
+                          <BookIcon />
+                        </Avatar>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="h6" fontWeight="600">
+                            {book.title}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            by {book.author}
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                            <Chip label={`ISBN: ${book.isbn}`} size="small" variant="outlined" />
+                            <Chip label={`${book.availableCopies} available`} color="success" size="small" />
+                          </Box>
+                        </Box>
+                      </Box>
+                    </Paper>
+                  </Grid>
                 ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+              </Grid>
+
+              {availableBooks.length === 0 && (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <Typography variant="h6" color="text.secondary">
+                    No available books found
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Try a different search term or check back later
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Zoom>
+        )
+      case 1:
+        return (
+          <Zoom in={true}>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Member ID"
+                  value={memberId}
+                  onChange={(e) => setMemberId(e.target.value)}
+                  required
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <MemberIcon color="primary" />
+                      </InputAdornment>
+                    ),
+                  }}
+                  helperText="Unique member identification number"
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Member Name"
+                  value={memberName}
+                  onChange={(e) => setMemberName(e.target.value)}
+                  required
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <MemberIcon color="primary" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Due Date"
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  required
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <DateIcon color="primary" />
+                      </InputAdornment>
+                    ),
+                  }}
+                  inputProps={{
+                    min: new Date().toISOString().split('T')[0]
+                  }}
+                  helperText="Expected return date"
+                />
+              </Grid>
+            </Grid>
+          </Zoom>
+        )
+      case 2:
+        const selectedBookData = books.find(book => book.id === parseInt(selectedBook))
+        return (
+          <Zoom in={true}>
+            <Box>
+              <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
+                <Typography variant="h6" gutterBottom color="primary">
+                  Borrowing Summary
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Book: <strong>{selectedBookData?.title}</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Author: <strong>{selectedBookData?.author}</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Member: <strong>{memberName}</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Member ID: <strong>{memberId}</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Due Date: <strong>{dueDate}</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Borrowed Date: <strong>{new Date().toLocaleDateString()}</strong>
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </Paper>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Please review the information above before confirming the borrowing process.
+              </Alert>
+            </Box>
+          </Zoom>
+        )
+      default:
+        return 'Unknown step'
+    }
+  }
+
+  const isOverdue = (dueDate) => {
+    return new Date(dueDate) < new Date()
+  }
+
+  return (
+    <Box>
+      <Typography variant="h4" fontWeight="bold" color="primary" gutterBottom>
+        Book Borrowing System
+      </Typography>
+
+      {success && (
+        <Alert 
+          severity="success" 
+          sx={{ mb: 3 }}
+          icon={<SuccessIcon />}
+          onClose={() => setSuccess('')}
+        >
+          {success}
+        </Alert>
+      )}
+
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={8}>
+          <Card elevation={3}>
+            <CardContent>
+              <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+                {steps.map((label) => (
+                  <Step key={label}>
+                    <StepLabel>{label}</StepLabel>
+                  </Step>
+                ))}
+              </Stepper>
+
+              {error && (
+                <Alert severity="error" sx={{ mb: 3 }}>
+                  {error}
+                </Alert>
+              )}
+
+              {getStepContent(activeStep)}
+              
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+                <Button
+                  disabled={activeStep === 0}
+                  onClick={handleBack}
+                  variant="outlined"
+                >
+                  Back
+                </Button>
+                
+                <Button
+                  variant="contained"
+                  onClick={activeStep === steps.length - 1 ? handleBorrow : handleNext}
+                  disabled={loading}
+                  startIcon={activeStep === steps.length - 1 ? <SuccessIcon /> : null}
+                >
+                  {loading ? 'Processing...' : 
+                   activeStep === steps.length - 1 ? 'Confirm Borrow' : 'Next'}
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          <Card elevation={3}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom color="primary">
+                Currently Borrowed Books
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {borrowedBooks.length} book(s) currently borrowed
+              </Typography>
+
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Book</TableCell>
+                      <TableCell>Due Date</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {borrowedBooks.slice(0, 5).map((book) => (
+                      <TableRow key={book.id}>
+                        <TableCell>
+                          <Typography variant="body2" noWrap sx={{ maxWidth: 120 }}>
+                            {book.title}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={book.dueDate}
+                            size="small"
+                            color={isOverdue(book.dueDate) ? 'error' : 'warning'}
+                            icon={isOverdue(book.dueDate) ? <WarningIcon /> : <ClockIcon />}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              {borrowedBooks.length === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                  No books currently borrowed
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
   )
 }
 
